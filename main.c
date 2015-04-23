@@ -40,9 +40,12 @@ int main(int argc, char *argv[]) {
                 break;
             }else if(strcmp(cmd, "checkEnv") == 0){
                 char *arg = strtok(0, DELIMS);
-                if (!arg) system("printenv PAGER");//TODO execute printenv | sort | pager
-                //else //TODO
-
+                if (!arg) system("printenv | sort | less");//TODO execute printenv | sort | pager
+                else{
+                    char *str = ("printenv | grep ", arg);
+                    char *final = (str," | sort | less");
+                    system(final);
+                }
             } else system(line);
 
                 if (errno) perror("Command failed");
