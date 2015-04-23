@@ -36,11 +36,16 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(cmd, "exit") == 0) {
                 //here we should terminate all remaining processes
                 // started from the shell in an orderly manner before exiting the shell itself
+
                 break;
+            }else if(strcmp(cmd, "checkEnv") == 0){
+                char *arg = strtok(0, DELIMS);
+                if (!arg) system("printenv PAGER");//TODO execute printenv | sort | pager
+                //else //TODO
 
             } else system(line);
 
-            if (errno) perror("Command failed");
+                if (errno) perror("Command failed");
         }
     }
 
