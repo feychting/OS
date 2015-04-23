@@ -2,17 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#define chdir _chdir
-
-#else
 #include <unistd.h>
-#endif
+
 
 #define MAX_LENGTH 80
-#define DELIMS " \t\r\n"
+#define DELIMS " \t\n"
 
 int main(int argc, char *argv[]) {
     char *cmd;
@@ -20,9 +14,15 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         printf("fake_shell$ ");
+        //The C library function char *fgets(char *str, int n, FILE *stream) reads
+        // a line from the specified stream and stores it into the string pointed
+        // to by str. It stops when either (n-1) characters are read, the newline
+        // character is read, or the end-of-file is reached, whichever comes firs
         if (!fgets(line, MAX_LENGTH, stdin)) break;
 
         // Parse and execute command
+        //The C library function char *strtok(char *str, const char *delim)
+        // breaks string str into a series of tokens using the delimiter delim.
         if ((cmd = strtok(line, DELIMS))) {
             // Clear errors
             errno = 0;
