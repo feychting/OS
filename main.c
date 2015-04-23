@@ -30,11 +30,11 @@ int main(int argc, char *argv[]) {
             if (strcmp(cmd, "cd") == 0) {
                 char *arg = strtok(0, DELIMS);
 
-                if (!arg) fprintf(stderr, "cd missing argument.\n");
+                if (!arg) chdir(getenv("HOME"));
                 else chdir(arg);
 
             } else if (strcmp(cmd, "exit") == 0) {
-                //here we should terminates all remaining processes
+                //here we should terminate all remaining processes
                 // started from the shell in an orderly manner before exiting the shell itself
                 break;
 
@@ -45,4 +45,5 @@ int main(int argc, char *argv[]) {
     }
 
     return 0;
+//    fprintf(stderr, "cd missing argument.\n")
 }
