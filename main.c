@@ -17,11 +17,11 @@ int main(int argc, char *argv[]) {
         //The C library function char *fgets(char *str, int n, FILE *stream) reads
         // a line from the specified stream and stores it into the string pointed
         // to by str. It stops when either (n-1) characters are read, the newline
-        // character is read, or the end-of-file is reached, whichever comes firs
+        // character is read, or the end-of-file is reached, whichever comes first
         if (!fgets(line, MAX_LENGTH, stdin)) break;
 
         // Parse and execute command
-        //The C library function char *strtok(char *str, const char *delim)
+        //The C library function char *strtok(char *str, const char *deli
         // breaks string str into a series of tokens using the delimiter delim.
         if ((cmd = strtok(line, DELIMS))) {
             // Clear errors
@@ -66,3 +66,16 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    int handleCheckEnv(char *arg) {
+        if (!arg) system("printenv | sort | less");//TODO execute printenv | sort | pager
+        else {
+            char *start = ("printenv | grep ");
+            char *end = (" | sort | less");
+            char str[100];
+            strcpy(str, start);
+            strcat(str, arg);
+            strcat(str, end);
+            system(str);
+        }
+        return 0;
+    }
