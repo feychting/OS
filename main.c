@@ -37,16 +37,7 @@ int main(int argc, char *argv[]) {
                 break;
             } else if (strcmp(cmd, "checkEnv") == 0) {
                 char *arg = strtok(0, DELIMS);
-                if (!arg) system("printenv | sort | less");//TODO execute printenv | sort | pager
-                else {
-                    char *start = ("printenv | grep ");
-                    char *end = (" | sort | less");
-                    char str[80];
-                    strcpy(str, start);
-                    strcat(str, arg);
-                    strcat(str, end);
-                    system(str);
-                }
+                int a = handleCheckEnv(arg);
             } else{
                 errno = ENOSYS;
             } //system(line);
