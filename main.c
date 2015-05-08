@@ -58,15 +58,34 @@ int main(int argc, char *argv[]) {
     }
 
     int handleCheckEnv(char *arg) {
-        if (!arg) system("printenv | sort | less");//TODO execute printenv | sort | pager
-        else {
-            char *start = ("printenv | grep ");
-            char *end = (" | sort | less");
-            char str[100];
-            strcpy(str, start);
+
+        char *grep = (" | grep ");
+        char *sort = (" | sort | ");
+        char *pager = getenv("PAGER");
+        if (!pager) {
+            pager="less";
+        }
+        char str[100];
+        strcpy(str, "printenv");
+        if (arg){
+            strcat(str, grep);
             strcat(str, arg);
-            strcat(str, end);
+        }
+        strcat(str, sort);
+        strcat(str, pager);
+        system(str);
+        if (errno && strcmp(pager, "more")) {
+            char *pager = "more";
+            char str[100];
+            strcpy(str, "printenv");
+            if (arg){
+                strcat(str, grep);
+                strcat(str, arg);
+            }
+            strcat(str, sort);
+            strcat(str, pager);
             system(str);
         }
+
         return 0;
     }
