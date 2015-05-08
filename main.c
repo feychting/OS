@@ -42,9 +42,13 @@ int main(int argc, char *argv[]) {
                 char *arg = strtok(0, DELIMS);
                 if (!arg) system("printenv | sort | less");//TODO execute printenv | sort | pager
                 else{
-                    char *str = ("printenv | grep ", arg);
-                    char *final = (str," | sort | less");
-                    system(final);
+                    char *start = ("printenv | grep ");
+                    char *end = (" | sort | less");
+                    char str[80];
+                    strcpy(str, start);
+                    strcat(str, arg);
+                    strcat(str, end);
+                    system(str);
                 }
             } else system(line);
 
