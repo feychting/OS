@@ -29,19 +29,16 @@ int main(int argc, char *argv[]) {
 
             if (strcmp(cmd, "cd") == 0) {
                 char *arg = strtok(0, DELIMS);
-
-                if (!arg) chdir(getenv("HOME"));
-                else chdir(arg);
+                int a = handleCd(arg);
 
             } else if (strcmp(cmd, "exit") == 0) {
                 //here we should terminate all remaining processes
                 // started from the shell in an orderly manner before exiting the shell itself
-
                 break;
-            }else if(strcmp(cmd, "checkEnv") == 0){
+            } else if (strcmp(cmd, "checkEnv") == 0) {
                 char *arg = strtok(0, DELIMS);
                 if (!arg) system("printenv | sort | less");//TODO execute printenv | sort | pager
-                else{
+                else {
                     char *start = ("printenv | grep ");
                     char *end = (" | sort | less");
                     char str[80];
@@ -52,10 +49,18 @@ int main(int argc, char *argv[]) {
                 }
             } else system(line);
 
-                if (errno) perror("Command failed");
+            if (errno) perror("Command failed");
         }
     }
 
     return 0;
 //    fprintf(stderr, "cd missing argument.\n")
+
 }
+    int handleCd(char *arg)
+    {
+        if (!arg) chdir(getenv("HOME"));
+        else chdir(arg);
+        return 0;
+    }
+
