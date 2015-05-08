@@ -47,9 +47,11 @@ int main(int argc, char *argv[]) {
                     strcat(str, end);
                     system(str);
                 }
-            } else system(line);
+            } else{
+                errno = ENOSYS;
+            } //system(line);
 
-            if (errno) perror("Command failed");
+             if (errno) perror("Command failed");
         }
     }
 
