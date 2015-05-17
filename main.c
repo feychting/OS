@@ -8,38 +8,34 @@
 
 #define WRITE 1
 #define READ 0
+#define TRUE 1
 
 #define MAX_LENGTH 80
 #define DELIMS " \t\n"
 
-int pipe1[2], pipe2[2];
-void closePipe(int pipeEnd[2]){
-    if (close(pipeEnd[READ]) == -1)
-        err("error when closing pipe, read");
 
-    if (close(pipeEnd[WRITE]) == -1)
-        err("error when closing pipe, write");
+
+void closePipe(int pipeEnd[2], int direction){
+    if (close(pipeEnd[direction]) == -1)
+        perror("error when closing pipe");
+    exit(1);
+}
+void type_prompt(){
+    printf("fake_shell$ ");
 }
 int main(int argc, char *argv[]) {
     char *cmd;
     char line[MAX_LENGTH];
-    pid_t childPID, childPID2, childPID3;
+    pid_t pid;
 
 
+    while (TRUE) {
+        //printf("fake_shell$ ");
+        type_prompt();
+        fflush(stdout);
 
-
-
-    while (1) {
-        printf("fake_shell$ ");
-        //The C library function char *fgets(char *str, int n, FILE *stream) reads
-        // a line from the specified stream and stores it into the string pointed
-        // to by str. It stops when either (n-1) characters are read, the newline
-        // character is read, or the end-of-file is reached, whichever comes first
         if (!fgets(line, MAX_LENGTH, stdin)) break;
 
-        // Parse and execute command
-        //The C library function char *strtok(char *str, const char *deli
-        // breaks string str into a series of tokens using the delimiter delim.
         if ((cmd = strtok(line, DELIMS))) {
             // Clear errors
             errno = 0;
@@ -49,115 +45,44 @@ int main(int argc, char *argv[]) {
                 int a = handleCd(arg);
             }
             else if (strcmp(cmd, "ls") == 0) {
-                childPID = fork();
-                if (childPID >= 0) {
-                    if (childPID == 0) {
-                        int a = handleLs();
-                    }
-                    else {
-                        printf("dekfjsf");
-                    }
+
+                if ((pid = fork()) == -1) {
+                    perror("ls Fork");
+                    return EXIT_FAILURE;
                 }
-                else {
-                    printf("fork failed!");
+                if (pid == 0) {
+                    int a = handleLs();
+                }else{
+                    waitpid(pid, NULL, 0);
 
                 }
-                if (strcmp(cmd, "exit") == 0) {
-                    //here we should terminate all remaining processes
-                    // started from the shell in an orderly manner before exiting the shell itself
-                    break;
-                } else if (strcmp(cmd, "checkEnv") == 0) {
-                    if (pipe(pipe1) == -1) {
-                        err("pipe1");
-                    }
-                    if (pipe(pipe2) == -1) {
-                        err("pipe2");
-                    }
-                    char *arg = strtok(0, DELIMS);
-                    childPID = fork();
-                    if (childPID >= 0) {
-                        if (childPID == 0) {
-
-                            if (dup2(pipe1[WRITE], STDOUT_FILENO) == -1) {
-                                perror("dup2 failed");
-                            }
-                            closePipe(pipe1);
-                            closePipe(pipe2);
-                            if (execlp("printenv", "printenv", arg, NULL) == -1) {
-                                perror("printenv faild");
-                            }
-
-                        }
-                        else {
-                            closePipe(pipe1);
-                            closePipe(pipe2);
-                            printf("gnu");
-                            waitpid(childPID, NULL, 0);
-                            childPID2 = fork();
-                            if (childPID2 >= 0) {
-                                if (childPID2 == 0) {
-                                    if (dup2(pipe1[READ], STDIN_FILENO) == -1) {
-                                        perror("dup2 failed");
-                                    }
-                                    if (dup2(pipe2[WRITE], STDOUT_FILENO) == -1) {
-                                        perror("dup2 failed");
-                                    }
-                                    closePipe(pipe1);
-                                    closePipe(pipe2);
-                                    if (execlp("sort", "sort", NULL) == -1) {
-                                        perror("Sort failed");
-                                    }
-                                }
-                                else {
-                                    closePipe(pipe1);
-                                    closePipe(pipe2);
-                                    childPID3 = fork();
-                                    if (childPID3 >= 0) {
-                                        if (childPID3 == 0) {
-                                            if (dup2(pipe2[READ], STDIN_FILENO) == -1) {
-                                                perror("dup2 failed");
-                                            }
-                                            closePipe(pipe1);
-                                            closePipe(pipe2);
-                                            char *pager = getenv("PAGER");
-
-                                            if (!pager) {
-                                                pager = "less";
-                                            }
-                                            if (execlp(pager, pager, NULL) == -1) {
-                                                perror("Pager faild, do more");
-                                                execlp("more", "more", NULL);
-                                            }
-                                        } else {
-                                            closePipe(pipe1);
-                                            closePipe(pipe2);
-                                        }
-                                    }
-                                }
-                            }
-                            else{
-                                perror("fork failed!");
-                            }
-                        }
-                    }
-                    else {
-                        perror("fork failed!");
-                        return 1;
-                    }
-                } else {
-                    errno = ENOSYS;
-                } //system(line);
-
-                if (errno) perror("Command failed");
             }
 
+            else if (strcmp(cmd, "exit") == 0) {
+                //here we should terminate all remaining processes
+                // started from the shell in an orderly manner before exiting the shell itself
+                break;
+            } else if (strcmp(cmd, "checkEnv") == 0) {
+                printf("found checkEnv\n");
+                char *arg = strtok(0, DELIMS);
+                handleCheckEnv(arg);
+                printf("DONE!\n");
+                errno = 0;
+            } else {
+                errno = ENOSYS;
+            } //system(line);
+
+            if (errno) perror("Command failed");
         }
 
-        return 0;
-//    fprintf(stderr, "cd missing argument.\n")
-
     }
+
+    //return 0;
+    //fprintf(stderr, "cd missing argument.\n")
+
 }
+
+
 int handleCd(char *arg)
 {
     if (!arg) chdir(getenv("HOME"));
@@ -166,36 +91,110 @@ int handleCd(char *arg)
 }
 
 int handleCheckEnv(char *arg) {
+    printf("called function\n");
+    pid_t childPID, childPID2, childPID3;
+    int pipe1[2], pipe2[2];
 
-    char *grep = (" | grep ");
-    char *sort = (" | sort | ");
-    char *pager = getenv("PAGER");
+    if (pipe(pipe1) == -1) {
+        perror("pipe1");
+        return EXIT_FAILURE;
+    }
+    if (pipe(pipe2) == -1) {
+        perror("pipe2");
+        return EXIT_FAILURE;
+    }
+    printf("pipes created\n");
+    if ((childPID = fork()) >= 0) { //child
+        printf("forkaaaat\n");
+        if (childPID == 0) {
+            printf("in child\n");
+            close(pipe1[READ]);
+            if (dup2(pipe1[WRITE], STDOUT_FILENO) == -1) {
+                perror("dup2 failed");
+                return EXIT_FAILURE;
+            }
+            close(pipe1[WRITE]);
+            if (execlp("printenv", "printenv", arg, NULL) == -1) {
+                perror("printenv failed");
+                return EXIT_FAILURE;
+            }
+            printf("end of child\n");
 
-    if (!pager) {
-        pager="less";
-    }
-    char str[100];
-    strcpy(str, "printenv");
-    if (arg){
-        strcat(str, grep);
-        strcat(str, arg);
-    }
-    strcat(str, sort);
-    strcat(str, pager);
-    //system(str);
-    execlp("printenv", "printenv", arg, NULL);
-    /*if (errno && strcmp(pager, "more")) {
-        char *pager = "more";
-        char str[100];
-        strcpy(str, "printenv");
-        if (arg){
-            strcat(str, grep);
-            strcat(str, arg);
         }
-        strcat(str, sort);
-        strcat(str, pager);
-        system(str);
-    }*/
+        else {
+            waitpid(childPID, NULL, 0);
+            printf("in parent\n");
+            close(pipe1[WRITE]);
+            printf("gnu");
+            childPID2 = fork();
+            if (childPID2 >= 0) {
+                fprintf( stdout, "fork2\n" );
+                fflush(stdout);
+                printf("fork2\n");
+                if (childPID2 == 0) {
+                    printf("child 2\n");
+                    close(pipe1[WRITE]);
+                    if (dup2(pipe1[READ], STDIN_FILENO) == -1) {
+                        perror("dup2 failed");
+                        return EXIT_FAILURE;
+                    }
+                    close(pipe1[READ]);
+                    close(pipe2[READ]);
+                    if (dup2(pipe2[WRITE], STDOUT_FILENO) == -1) {
+                        perror("dup2 failed");
+                        return EXIT_FAILURE;
+                    }
+                    close(pipe2[WRITE]);
+                    if (execlp("sort", "sort", NULL) == -1) {
+                        perror("Sort failed");
+                        return EXIT_FAILURE;
+                    }
+                }
+                else {
+                    waitpid(childPID2, NULL, 0);
+                    printf("parent 2\n");
+                    close(pipe1[READ]);
+                    close(pipe1[WRITE]);
+                    close(pipe2[WRITE]);
+                    childPID3 = fork();
+                    if (childPID3 >= 0) {
+                        printf("fork 3\n");
+                        printf(errno);
+                        if (childPID3 == 0) {
+                            printf("child 3\n");
+                            close(pipe2[WRITE]);
+                            if (dup2(pipe2[READ], STDIN_FILENO) == -1) {
+                                perror("dup2 failed");
+                            }
+                            close(pipe2[READ]);
+                            char *pager = getenv("PAGER");
+
+                            if (!pager) {
+                                pager = "less";
+                            }
+                            if (execlp(pager, pager, NULL) == -1) {
+                                perror("Pager faild, do more");
+                                execlp("more", "more", NULL);
+                            }
+                        } else {
+                            waitpid(childPID3, NULL, 0);
+                            printf("parent 3\n");
+                            close(pipe2[READ]);
+                            close(pipe2[WRITE]);
+                        }
+                    }
+                }
+            }
+            else{
+                perror("fork failed!");
+                return EXIT_FAILURE;
+            }
+        }
+    }
+    else {
+        perror("fork failed!");
+        return EXIT_FAILURE;
+    }
 
 
     return 0;
