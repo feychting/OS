@@ -37,24 +37,14 @@ void register_signalhandler(int signal_code, void (*handler) (int sig)){
 
 void signal_handler(int signal_code){
     char * signal_message = "UNKNOWN"; /* för signalnamnet */
-    char * which_process = "UNKNOWN"; /* sätts till Parent eller Child */
     if( SIGCHLD == signal_code ) signal_message = "SIGCHLD";
-    printf("\nChild process terminated by %s and signal is %d", signal_message, signal_code);
+    printf("\nChild process terminated by %s and signal is %d\n", signal_message, signal_code);
+    printf("fake_shell$");
+    fflush(stdout);
     signal(SIGCHLD, SIG_IGN);
     return;
 }
-/*void cleanup_handler( int signal_code, pid_t childpid ) {
-    int return_value;
-    char *signal_message = "UNKNOWN"; *//* för signalnamnet *//*
-    char *which_process = "UNKNOWN"; *//* sätts till Parent eller Child *//*
-    if (SIGINT == signal_code) signal_message = "SIGINT";
-    return_value = kill(childpid, SIGKILL);
 
-    if( -1 == return_value ) *//* kill() misslyckades *//*
-    { perror( "kill() failed" ); exit( 1 );}
-
-    exit(0);
-}*/
 
 void closePipe(int pipeEnd[2], int direction){
     if (close(pipeEnd[direction]) == -1)
@@ -76,20 +66,20 @@ int handleCommand(bool bg, char *param[7]){
     struct timeval start, end;
     double timeUsed;
     pid = fork();
+    if (pid == -1) {
+        perror("\nfork\n");
+        exit(EXIT_FAILURE);
+    }
     if(pid >= 0){
-        printf("fork\n");
-        if(pid == 0) {
-            //register_signalhandler(SIGTERM, signal_handler);
-            printf("in child handleC\n");
+
+        if(pid == 0) {/*in child*/
+
             if(execvp(param[0], param) < 0){
-                perror("Could not execute command");
+                perror("Could not execute command\n");
             }
-            printf("Child done!\n");
-            return 0;
+            exit(1);
         }
         else{
-            printf("PARENT\n");
-            //register_signalhandler(SIGINT, cleanup_handler);
             if(!bg){
                 gettimeofday(&start, NULL);
                 waitpid(pid, NULL, 0);
@@ -101,7 +91,6 @@ int handleCommand(bool bg, char *param[7]){
                 if (!poll) {
                     register_signalhandler(SIGCHLD, signal_handler);
                 }
-                printf("child created in background\n");
             }
         }
     }
@@ -138,13 +127,10 @@ int handleCheckEnv(char *arg) {
         perror("pipe2");
         return EXIT_FAILURE;
     }
-    printf("pipes created\n");
     if (errno) perror("Command failed first");
 
-    if ((childPID = fork()) >= 0) { //child
-        printf("forkaaaat\n");
+    if ((childPID = fork()) >= 0) { /*child*/
         if (childPID == 0) {
-            printf("in child\n");
             close(pipe1[READ]);
             if (dup2(pipe1[WRITE], STDOUT_FILENO) == -1) {
                 perror("dup2 failed");
@@ -191,12 +177,10 @@ int handleCheckEnv(char *arg) {
                     close(pipe2[WRITE]);
                     childPID3 = fork();
                     if (childPID3 >= 0) {
-                        printf("fork 3\n");
                         if (errno) perror("Command failed both");
                         if (childPID3 == 0) {
                             char *pager = getenv("PAGER");
                             if (errno) perror("Command failed");
-                            printf("child 3\n");
                             close(pipe2[WRITE]);
                             if (dup2(pipe2[READ], STDIN_FILENO) == -1) {
                                 perror("dup2 failed");
@@ -212,7 +196,6 @@ int handleCheckEnv(char *arg) {
                             }
                         } else {
                             waitpid(childPID3, NULL, 0);
-                            printf("parent 3\n");
                             close(pipe2[READ]);
                             close(pipe2[WRITE]);
                             if (errno) perror("Command failed prent");
@@ -238,26 +221,25 @@ int handleLs(){
     execlp("ls", "ls", "-a", NULL);
     return 0;
 }
-
-//TODO skriv ut vilka kommandon det är som inte funkade i en pipe
 int main(int argc, char *argv[]) {
     pid_t pid;
     char *line;
     char *input;
     char *param[7];
     poll = false;
-    //signal(SIGALRM,signalHandler);
-    //signal(SIGUSR1,signalHandler);
-    #ifdef SIGNAL // test whether SIGNAL is defined...
+
+    #ifdef SIGNAL /* test whether SIGNAL is defined...*/
             if(SIGNAL == 1) printf("\nSIGNAL Defined\n");
             else {
                 poll = true;
                 printf("\nPOLL Defined\n");
             }
-        #else // test whether POLL is defined...
+        #else /*otherwise use POLL...*/
         poll = true;
         printf("\nPOLL Defined\n");
     #endif
+
+    if(signal(SIGINT, SIG_IGN) != SIG_IGN) signal(SIGINT, SIG_IGN);
 
     while (TRUE) {
         type_prompt();
@@ -267,7 +249,6 @@ int main(int argc, char *argv[]) {
         if (!fgets(line, MAX_LENGTH, stdin)) break;
         input = line;
         if ((cmd = strtok(line, DELIMS))) {
-            // Clear errors
             errno = 0;
             if (strcmp(cmd, "cd") == 0) {
                 char *arg = strtok(0, DELIMS);
@@ -288,12 +269,11 @@ int main(int argc, char *argv[]) {
             }
 
             else if (strcmp(cmd, "exit") == 0) {
-                //here we should terminate all remaining processes
-                // started from the shell in an orderly manner before exiting the shell itself
+                /*here we should terminate all remaining processes
+                 started from the shell in an orderly manner before exiting the shell itself*/
                 break;
             } else if (strcmp(cmd, "checkEnv") == 0) {
                 char *arg = strtok(0, DELIMS);
-                printf("found checkEnv\n");
                 handleCheckEnv(arg);
                 printf("DONE!\n");
                 errno = 0;
@@ -310,7 +290,6 @@ int main(int argc, char *argv[]) {
                 param[6]=NULL;
                 bg = checkForBackgroundP(param[counter]);
                 if(bg) param[counter] = NULL;
-
                 handleCommand(bg, param);
             }
             if (errno) perror("Command failed");
