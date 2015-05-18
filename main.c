@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdbool.h>
+#include <signal.h>
 
 
 #define WRITE 1
@@ -16,6 +17,42 @@
 #define DELIMS " \t\n"
 
 char *cmd;
+bool poll;
+
+void register_signalhandler(int signal_code, void (*handler) (int sig)){
+    int return_value;
+    struct sigaction signal_parameters;
+
+    signal_parameters.sa_handler = handler;
+    sigemptyset(&signal_parameters.sa_mask);
+    signal_parameters.sa_flags = 0;
+
+    return_value = sigaction(signal_code, &signal_parameters, (void *) 0);
+
+    if(-1 == return_value) {
+        perror("sigaction() faild\n");
+        exit(1);
+    }
+}
+
+void signal_handler(int signal_code){
+    char * signal_message = "UNKNOWN"; /* för signalnamnet */
+    char * which_process = "UNKNOWN"; /* sätts till Parent eller Child */
+    if( SIGCHLD == signal_code ) signal_message = "SIGCHLD";
+    printf("Child process terminated by %s and signal is %d\n", signal_message, signal_code);
+}
+/*void cleanup_handler( int signal_code, pid_t childpid ) {
+    int return_value;
+    char *signal_message = "UNKNOWN"; *//* för signalnamnet *//*
+    char *which_process = "UNKNOWN"; *//* sätts till Parent eller Child *//*
+    if (SIGINT == signal_code) signal_message = "SIGINT";
+    return_value = kill(childpid, SIGKILL);
+
+    if( -1 == return_value ) *//* kill() misslyckades *//*
+    { perror( "kill() failed" ); exit( 1 );}
+
+    exit(0);
+}*/
 
 void closePipe(int pipeEnd[2], int direction){
     if (close(pipeEnd[direction]) == -1)
@@ -23,33 +60,46 @@ void closePipe(int pipeEnd[2], int direction){
     exit(1);
 }
 void type_prompt(){
+    if(poll){
+        if(waitpid(-1,NULL, WNOHANG)>0){
+            printf("Background child process termineted\n");
+        }
+    }//TODO kolla om en bakgrundsprocess har terminerat
     printf("fake_shell$ ");
 }
 
 int handleCommand(bool bg, char *param[7]){
     pid_t pid;
+
     struct timeval start, end;
     double timeUsed;
     pid = fork();
     if(pid >= 0){
         printf("fork\n");
         if(pid == 0) {
+            //register_signalhandler(SIGTERM, signal_handler);
             printf("in child handleC\n");
             if(execvp(param[0], param) < 0){
                 perror("Could not execute command");
             }
+            printf("Child done!\n");
             return 0;
         }
         else{
+            printf("PARENT\n");
+            //register_signalhandler(SIGINT, cleanup_handler);
             if(!bg){
                 gettimeofday(&start, NULL);
                 waitpid(pid, NULL, 0);
                 gettimeofday(&end, NULL);
                 timeUsed = (end.tv_sec + ((double)end.tv_usec/1000000))-(start.tv_sec+((double)start.tv_usec/1000000));
                 printf("Process terminated in: %f seconds\n", timeUsed);
-            }else{
-                //TODO signals
-
+            }
+            else {
+                if (!poll) {
+                    register_signalhandler(SIGCHLD, signal_handler);
+                }
+                printf("child created in background\n");
             }
         }
     }
@@ -193,6 +243,20 @@ int main(int argc, char *argv[]) {
     char *line;
     char *input;
     char *param[7];
+    poll = false;
+    //signal(SIGALRM,signalHandler);
+    //signal(SIGUSR1,signalHandler);
+    #ifdef SIGNAL // test whether SIGNAL is defined...
+            if(SIGNAL == 1) printf("\nSIGNAL Defined\n");
+            else {
+                poll = true;
+                printf("\nPOLL Defined\n");
+            }
+        #else // test whether POLL is defined...
+        poll = true;
+        printf("\nPOLL Defined\n");
+    #endif
+
     while (TRUE) {
         type_prompt();
         fflush(stdout);
@@ -242,7 +306,9 @@ int main(int argc, char *argv[]) {
                     tmp = strtok(0, DELIMS);
                 }
                 param[6]=NULL;
-                bg = checkForBackgroundP(param[counter]);//TODO global?
+                bg = checkForBackgroundP(param[counter]);
+                if(bg) param[counter] = NULL;
+                //TODO global?
                 handleCommand(bg, param);
             }
             if (errno) perror("Command failed");
