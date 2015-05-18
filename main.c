@@ -38,10 +38,10 @@ void register_signalhandler(int signal_code, void (*handler) (int sig)){
 void signal_handler(int signal_code){
     char * signal_message = "UNKNOWN"; /* för signalnamnet */
     if( SIGCHLD == signal_code ) signal_message = "SIGCHLD";
-    printf("\nChild process terminated by %s and signal is %d\n", signal_message, signal_code);
-    printf("fake_shell$");
+    printf("\nChild process terminated by %s signal %d\n", signal_message, signal_code);
+    printf("fake_shell$ ");
     fflush(stdout);
-    signal(SIGCHLD, SIG_IGN);
+    signal(SIGCHLD, SIG_DFL);
     return;
 }
 
@@ -73,9 +73,8 @@ int handleCommand(bool bg, char *param[7]){
     if(pid >= 0){
 
         if(pid == 0) {/*in child*/
-
             if(execvp(param[0], param) < 0){
-                perror("Could not execute command\n");
+                perror("Could not execute command");
             }
             exit(1);
         }
@@ -91,6 +90,7 @@ int handleCommand(bool bg, char *param[7]){
                 if (!poll) {
                     register_signalhandler(SIGCHLD, signal_handler);
                 }
+
             }
         }
     }
@@ -117,7 +117,6 @@ int handleCd(char *arg)
 int handleCheckEnv(char *arg) {
     pid_t childPID, childPID2, childPID3;
     int pipe1[2], pipe2[2];
-    printf("called function\n");
 
     if (pipe(pipe1) == -1) {
         perror("pipe1");
@@ -127,7 +126,6 @@ int handleCheckEnv(char *arg) {
         perror("pipe2");
         return EXIT_FAILURE;
     }
-    if (errno) perror("Command failed first");
 
     if ((childPID = fork()) >= 0) { /*child*/
         if (childPID == 0) {
@@ -141,18 +139,13 @@ int handleCheckEnv(char *arg) {
                 perror("printenv failed");
                 return EXIT_FAILURE;
             }
-            printf("end of child\n");
         }
         else {
             waitpid(childPID, NULL, 0);
-            printf("in parent\n");
             close(pipe1[WRITE]);
             childPID2 = fork();
             if (childPID2 >= 0) {
-                printf("fork2\n");
                 if (childPID2 == 0) {
-                    printf("child 2\n");
-                    close(pipe1[WRITE]);
                     if (dup2(pipe1[READ], STDIN_FILENO) == -1) {
                         perror("dup2 failed");
                         return EXIT_FAILURE;
@@ -171,17 +164,12 @@ int handleCheckEnv(char *arg) {
                 }
                 else {
                     waitpid(childPID2, NULL, 0);
-                    printf("parent 2\n");
                     close(pipe1[READ]);
-                    close(pipe1[WRITE]);
                     close(pipe2[WRITE]);
                     childPID3 = fork();
                     if (childPID3 >= 0) {
-                        if (errno) perror("Command failed both");
                         if (childPID3 == 0) {
                             char *pager = getenv("PAGER");
-                            if (errno) perror("Command failed");
-                            close(pipe2[WRITE]);
                             if (dup2(pipe2[READ], STDIN_FILENO) == -1) {
                                 perror("dup2 failed");
                             }
@@ -191,14 +179,12 @@ int handleCheckEnv(char *arg) {
                                 pager = "less";
                             }
                             if (execlp(pager, pager, NULL) == -1) {
-                                perror("Pager failed, do more");
+                                perror("Pager failed, do MORE");
                                 execlp("more", "more", NULL);
                             }
                         } else {
                             waitpid(childPID3, NULL, 0);
                             close(pipe2[READ]);
-                            close(pipe2[WRITE]);
-                            if (errno) perror("Command failed prent");
                         }
                     }
                 }
@@ -275,8 +261,6 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(cmd, "checkEnv") == 0) {
                 char *arg = strtok(0, DELIMS);
                 handleCheckEnv(arg);
-                printf("DONE!\n");
-                errno = 0;
             } else {
                 char *tmp = strtok(0, DELIMS);
                 int counter = 0;
