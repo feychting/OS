@@ -25,7 +25,7 @@ void register_signalhandler(int signal_code, void (*handler) (int sig)){
 
     signal_parameters.sa_handler = handler;
     sigemptyset(&signal_parameters.sa_mask);
-    signal_parameters.sa_flags = 0;
+    signal_parameters.sa_flags = SA_RESTART;
 
     return_value = sigaction(signal_code, &signal_parameters, (void *) 0);
 
@@ -39,7 +39,9 @@ void signal_handler(int signal_code){
     char * signal_message = "UNKNOWN"; /* för signalnamnet */
     char * which_process = "UNKNOWN"; /* sätts till Parent eller Child */
     if( SIGCHLD == signal_code ) signal_message = "SIGCHLD";
-    printf("Child process terminated by %s and signal is %d\n", signal_message, signal_code);
+    printf("\nChild process terminated by %s and signal is %d", signal_message, signal_code);
+    signal(SIGCHLD, SIG_IGN);
+    return;
 }
 /*void cleanup_handler( int signal_code, pid_t childpid ) {
     int return_value;
@@ -64,7 +66,7 @@ void type_prompt(){
         if(waitpid(-1,NULL, WNOHANG)>0){
             printf("Background child process termineted\n");
         }
-    }//TODO kolla om en bakgrundsprocess har terminerat
+    }
     printf("fake_shell$ ");
 }
 
@@ -308,7 +310,7 @@ int main(int argc, char *argv[]) {
                 param[6]=NULL;
                 bg = checkForBackgroundP(param[counter]);
                 if(bg) param[counter] = NULL;
-                //TODO global?
+
                 handleCommand(bg, param);
             }
             if (errno) perror("Command failed");
