@@ -28,12 +28,9 @@ void type_prompt(){
      * the pid of the child.
      */
     if(poll){
-        int pidChild;
-        if((pidChild = waitpid(-1,NULL, WNOHANG)) != 0){
-            if (pidChild == -1) {
-                perror("Waitpid failed");
-            }
-            else printf("Background process %d has terminated\n", pidChild);
+        int childpid;
+        while((childpid = waitpid(-1,NULL, WNOHANG)) > 0){
+            printf("Background child process %d termineted\n", childpid);
         }
     }
     /*
@@ -74,17 +71,10 @@ void signal_handler(int signal_code){
      * no child processes have changed status.
      */
     if( SIGCHLD == signal_code ) {
-        int pidChild;
-        if((pidChild = waitpid(-1, NULL, WNOHANG)) != 0)
+        int pidChild, status;
+        while((pidChild = waitpid(-1, &status, WNOHANG)) > 0)
         {
-            if(-1 == pidChild)
-            {
-                perror("Waitpid failed");
-            }
-            else
-            {
-                printf("Background process %d has terminated\n", pidChild);
-            }
+            printf("Background process %d has terminated\n", pidChild);
         }
     }
     return;
