@@ -19,6 +19,21 @@
 char *cmd;
 bool poll;
 
+void closePipe(int pipeEnd[2], int direction){
+    if (close(pipeEnd[direction]) == -1)
+        perror("error when closing pipe");
+    exit(1);
+}
+
+void type_prompt(){
+    if(poll){
+        if(waitpid(-1,NULL, WNOHANG)>0){
+            printf("Background child process termineted\n");
+        }
+    }
+    printf("fake_shell$ ");
+}
+
 void register_signalhandler(int signal_code, void (*handler) (int sig)){
     int return_value;
     struct sigaction signal_parameters;
@@ -36,32 +51,26 @@ void register_signalhandler(int signal_code, void (*handler) (int sig)){
 }
 
 void signal_handler(int signal_code){
-    char * signal_message = "UNKNOWN"; /* för signalnamnet */
-    if( SIGCHLD == signal_code ) signal_message = "SIGCHLD";
-    printf("\nChild process terminated by %s signal %d\n", signal_message, signal_code);
-    printf("fake_shell$ ");
-    fflush(stdout);
-    signal(SIGCHLD, SIG_DFL);
-    return;
-}
-
-
-void closePipe(int pipeEnd[2], int direction){
-    if (close(pipeEnd[direction]) == -1)
-        perror("error when closing pipe");
-    exit(1);
-}
-void type_prompt(){
-    if(poll){
-        if(waitpid(-1,NULL, WNOHANG)>0){
-            printf("Background child process termineted\n");
+    if( SIGCHLD == signal_code ) {
+        int pidChild, status;
+        if((pidChild = waitpid(-1, &status, WNOHANG)) != 0)
+        {
+            if(-1 == pidChild)
+            {
+                perror("Waitpid failed");
+            }
+            else
+            {
+                printf("Background process %d has terminated\n", pidChild);
+            }
         }
     }
-    printf("fake_shell$ ");
+    return;
 }
 
 int handleCommand(bool bg, char *param[7]){
     pid_t pid;
+    int status = -1;
 
     struct timeval start, end;
     double timeUsed;
@@ -70,28 +79,27 @@ int handleCommand(bool bg, char *param[7]){
         perror("\nfork\n");
         exit(EXIT_FAILURE);
     }
-    if(pid >= 0){
-        if(pid == 0) {/*in child*/
-            fflush(stdout);
-            if(execvp(param[0], param) < 0){
-                perror("Could not execute command");
-            }
-            exit(1);
+    else if(pid == 0) {/*in child*/
+        register_signalhandler(SIGCHLD, signal_handler);
+        if(execvp(param[0], param) < 0){
+            perror("Could not execute command");
         }
-        else{
-            if(!bg){
-                gettimeofday(&start, NULL);
-                waitpid(pid, NULL, 0);
-                gettimeofday(&end, NULL);
-                timeUsed = (end.tv_sec + ((double)end.tv_usec/1000000))-(start.tv_sec+((double)start.tv_usec/1000000));
-                printf("Process terminated in: %f seconds\n", timeUsed);
+        exit(1);
+    }
+    else{
+        if(bg){
+            if (!poll) {
+                register_signalhandler(SIGCHLD, signal_handler);
             }
-            else {
-                if (!poll) {
-                    register_signalhandler(SIGCHLD, signal_handler);
-                }
-
-            }
+        }
+        else {
+            sighold(SIGCHLD);
+            gettimeofday(&start, NULL);
+            waitpid(pid, &status, 0);
+            gettimeofday(&end, NULL);
+            timeUsed = (end.tv_sec + ((double)end.tv_usec/1000000))-(start.tv_sec+((double)start.tv_usec/1000000));
+            printf("Process terminated in: %f seconds\n", timeUsed);
+            sigrelse(SIGCHLD);
         }
     }
     return 0;
@@ -126,7 +134,7 @@ int handleCheckEnv(char *arg) {
         perror("pipe2");
         return EXIT_FAILURE;
     }
-
+    sighold(SIGCHLD);
     if ((childPID = fork()) >= 0) { /*child*/
         if (childPID == 0) {
             close(pipe1[READ]);
@@ -199,18 +207,18 @@ int handleCheckEnv(char *arg) {
         perror("fork failed!");
         return EXIT_FAILURE;
     }
+    sigrelse(SIGCHLD);
     return 0;
 }
 
 int handleLs(){
-
     execlp("ls", "ls", "-a", NULL);
     return 0;
 }
+
 int main(int argc, char *argv[]) {
     pid_t pid;
     char *line;
-    char *input;
     char *param[7];
     poll = false;
 
@@ -233,7 +241,6 @@ int main(int argc, char *argv[]) {
 
         line = (char *)malloc(MAX_LENGTH+1);
         if (!fgets(line, MAX_LENGTH, stdin)) break;
-        input = line;
         if ((cmd = strtok(line, DELIMS))) {
             errno = 0;
             if (strcmp(cmd, "cd") == 0) {
@@ -241,7 +248,6 @@ int main(int argc, char *argv[]) {
                 handleCd(arg);
             }
             else if (strcmp(cmd, "ls") == 0) {
-
                 if ((pid = fork()) == -1) {
                     perror("ls Fork");
                     return EXIT_FAILURE;
@@ -249,8 +255,9 @@ int main(int argc, char *argv[]) {
                 if (pid == 0) {
                     handleLs();
                 }else{
+                    sighold(SIGCHLD);
                     waitpid(pid, NULL, 0);
-
+                    sigrelse(SIGCHLD);
                 }
             }
 
@@ -278,5 +285,6 @@ int main(int argc, char *argv[]) {
             }
             if (errno) perror("Command failed");
         }
+        free(line);
     }
 }
