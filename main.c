@@ -28,8 +28,9 @@ void closePipe(int pipeEnd[2], int direction){
 
 void type_prompt(){
     if(poll){
-        if(waitpid(-1,NULL, WNOHANG)>0){
-            printf("Background child process termineted\n");
+        int childpid;
+        while((childpid = waitpid(-1,NULL, WNOHANG)) > 0){
+            printf("Background child process %d termineted\n", childpid);
         }
     }
     printf("fake_shell$ ");
@@ -54,16 +55,9 @@ void register_signalhandler(int signal_code, void (*handler) (int sig)){
 void signal_handler(int signal_code){
     if( SIGCHLD == signal_code ) {
         int pidChild, status;
-        if((pidChild = waitpid(-1, &status, WNOHANG)) != 0)
+        while((pidChild = waitpid(-1, &status, WNOHANG)) > 0)
         {
-            if(-1 == pidChild)
-            {
-                perror("Waitpid failed");
-            }
-            else
-            {
-                printf("Background process %d has terminated\n", pidChild);
-            }
+            printf("Background process %d has terminated\n", pidChild);
         }
     }
     return;
