@@ -71,8 +71,8 @@ int handleCommand(bool bg, char *param[7]){
         exit(EXIT_FAILURE);
     }
     if(pid >= 0){
-
         if(pid == 0) {/*in child*/
+            fflush(stdout);
             if(execvp(param[0], param) < 0){
                 perror("Could not execute command");
             }
@@ -271,9 +271,9 @@ int main(int argc, char *argv[]) {
                     param[counter] = tmp;
                     tmp = strtok(0, DELIMS);
                 }
-                param[6]=NULL;
                 bg = checkForBackgroundP(param[counter]);
                 if(bg) param[counter] = NULL;
+                else param[counter +1] = NULL;
                 handleCommand(bg, param);
             }
             if (errno) perror("Command failed");
