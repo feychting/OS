@@ -71,8 +71,8 @@ void signal_handler(int signal_code){
      * no child processes have changed status.
      */
     if( SIGCHLD == signal_code ) {
-        int pidChild, status;
-        while((pidChild = waitpid(-1, &status, WNOHANG)) > 0)
+        int pidChild;
+        while((pidChild = waitpid(-1, NULL, WNOHANG)) > 0)
         {
             printf("Background process %d has terminated\n", pidChild);
         }
