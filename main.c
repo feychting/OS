@@ -82,7 +82,10 @@ void signal_handler(int signal_code){
 
 /*
  * Function to handle commands that are not built in
- * to the shell.
+ * to the shell. It receives information wether the process
+ * should be run in forground or background, and a list of
+ * arguments, where the command is the first argument and
+ * NULL is the last argument. Max 5 other arguments allowed.
  */
 int handleCommand(bool bg, char *param[7]){
     pid_t pid;
@@ -132,7 +135,8 @@ int handleCommand(bool bg, char *param[7]){
 
 /*
  * If the user wants a process to be run in the background,
- * & is added at the end of the command. This function returns
+ * & is added at the end of the command. This function takes the last
+ * argument given by the user and compares to &. This function returns
  * true if & was found at the end, otherwise false.
  */
 bool checkForBackgroundP(char *arg){
@@ -154,8 +158,8 @@ void handleCd(char *arg)
     char *dir;
     if (!arg) chdir(getenv("HOME"));
     else chdir(arg);
-    dir = getcwd(NULL, 0);
-    setenv("PWD", dir, 1);
+    dir = getcwd(NULL, 0); /*Current working directory*/
+    setenv("PWD", dir, 1); /*Parent working directory*/
     return;
 }
 
@@ -306,18 +310,26 @@ int main(int argc, char *argv[]) {
         printf("\nPOLL Defined\n");
     #endif
 
+    /*
+     * If interrupt signals are not already set to be ignored,
+     * make sure to ignore them! Users have to end the shell properly
+     * by calling exit.
+     */
     if(signal(SIGINT, SIG_IGN) != SIG_IGN) signal(SIGINT, SIG_IGN);
 
+    /*
+     * While-loop to make the shell stay open and accept new input.
+     */
     while (TRUE) {
+        fflush(stdout); /*Ensure no old outputs remain.*/
         type_prompt();
-        fflush(stdout);
 
-        line = (char *)malloc(MAX_LENGTH+1);
-        if (!fgets(line, MAX_LENGTH, stdin)) break;
+        line = (char *)malloc(MAX_LENGTH+1); /*Allocate memory for the input line*/
+        if (!fgets(line, MAX_LENGTH, stdin)) break; /* Read from input*/
         if ((cmd = strtok(line, DELIMS))) {
-            errno = 0;
-            if (strcmp(cmd, "cd") == 0) {
-                char *arg = strtok(0, DELIMS);
+            errno = 0; /*Ensure no old errors remain*/
+            if (strcmp(cmd, "cd") == 0) { /*Check if first command is cd*/
+                char *arg = strtok(0, DELIMS); /*Check if arguments were given*/
                 handleCd(arg);
             }
             else if (strcmp(cmd, "ls") == 0) {
@@ -325,40 +337,40 @@ int main(int argc, char *argv[]) {
                     perror("ls Fork");
                     return EXIT_FAILURE;
                 }
-                if (pid == 0) {
+                if (pid == 0) { /*In child*/
                     handleLs();
-                }else{
-                    sighold(SIGCHLD);
-                    waitpid(pid, NULL, 0);
-                    sigrelse(SIGCHLD);
+                }else{/*In parent*/
+                    sighold(SIGCHLD);/*Hold signals*/
+                    waitpid(pid, NULL, 0);/*Wait for child*/
+                    sigrelse(SIGCHLD);/*Release signals*/
                 }
             }
 
             else if (strcmp(cmd, "exit") == 0) {
                 printf("Shell will terminate when all children have finished\n");
-                while (waitpid(-1, NULL, 0) > 0){
+                while (waitpid(-1, NULL, 0) > 0){ /*Wait for remaining children*/
                 }
-                break;
+                break; /*Stop the loop*/
             } else if (strcmp(cmd, "checkEnv") == 0) {
-                char *arg = strtok(0, DELIMS);
+                char *arg = strtok(0, DELIMS);/*Check if arguments were given*/
                 handleCheckEnv(arg);
-            } else {
+            } else { /*Not a predefined command*/
                 char *tmp = strtok(0, DELIMS);
                 int counter = 0;
                 bool bg;
-                param[0] = cmd;
-                while((tmp!=NULL) && (counter <6)){
-                    counter++;
-                    param[counter] = tmp;
+                param[0] = cmd; /*First parameter in parameter list is the command.*/
+                while((tmp!=NULL) && (counter <6)){ /*Max five arguments allowed*/
+                    counter++;/*Keep track of no. of arguments given*/
+                    param[counter] = tmp;/*Store arguments in param list*/
                     tmp = strtok(0, DELIMS);
                 }
-                bg = checkForBackgroundP(param[counter]);
-                if(bg) param[counter] = NULL;
-                else param[counter +1] = NULL;
-                handleCommand(bg, param);
+                bg = checkForBackgroundP(param[counter]); /*Check if bg process*/
+                if(bg) param[counter] = NULL; /*Remove the & from the list of arguments*/
+                else param[counter +1] = NULL; /*Make sure last argument is NULL*/
+                handleCommand(bg, param); /*Include the full list of arguments*/
             }
-            if (errno) perror("Command failed");
+            if (errno) perror("Command failed"); /*Prints if any errors were encountered*/
         }
-        free(line);
+        free(line); /*Free memory allocated for input*/
     }
 }
