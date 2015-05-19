@@ -15,6 +15,7 @@
 
 #define MAX_LENGTH 80
 #define DELIMS " \t\n"
+#define _XOPEN_SOURCE 500
 
 char *cmd;
 bool poll;
