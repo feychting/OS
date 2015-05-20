@@ -289,7 +289,9 @@ int handleCheckEnv(char *arg) {
  * When user calls ls, automatically use ls -a.
  */
 int handleLs(){
-    execlp("ls", "ls", "-a", NULL);
+    if (execlp("ls", "ls", "-a", NULL)) == -1 {
+        perror("An error has occured");
+    }
     return 0;
 }
 
