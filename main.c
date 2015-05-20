@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
                 }
                 break; /*Stop the loop*/
             } else if (strcmp(cmd, "checkEnv") == 0) {
-                char *arg = strtok(0, DELIMS);/*Check if arguments were given*/
+                char *arg = strtok(0, DELIMS);/*Saves the argument if one is given*/
                 handleCheckEnv(arg);
             } else { /*Not a predefined command*/
                 char *tmp = strtok(0, DELIMS);
